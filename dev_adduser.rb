@@ -7,9 +7,16 @@ require 'rubygems'
 require 'highline/import'
 require 'securerandom'
 
+def find_new_user_id
+  id = File.readlines("last_id").join.to_i + 1
+  File.open("last_id", "w") {|f| f << id }
+  id
+end
+
+
 # Create an ldif that can be imported intro the database
 #
-def create_ldif(user_name, first_name, last_name, email)
+def create_ldif(user_name, uid, first_name, last_name, email)
   <<-EOS.gsub(/^ {4}/, '')
     version: 1
 
@@ -36,7 +43,7 @@ end
 def random_password
   chars = ('a'..'z').to_a
   newpass = ''
-  1.upto(6) do |_i|
+  1.upto(8) do |_i|
     newpass << chars[rand(chars.size - 1)]
   end
   puts newpass
@@ -121,7 +128,7 @@ def do_shit(user_name, first_name, last_name, email, rootpassword)
   password = random_password
 
   # Create the ldif file
-  user_id = SecureRandom.uuid
+  user_id = find_new_user_id
   puts user_id
   ldif = create_ldif(user_name, user_id, first_name, last_name, email)
   File.open('temp.ldif', 'w') do |file|
@@ -130,7 +137,7 @@ def do_shit(user_name, first_name, last_name, email, rootpassword)
 
   # Import the ldif file, then remove it
   puts 'Running ldap...'
-  `ldapadd -v -x -w #{rootpassword} -D cn=admin,dc=kelder,dc=zeus,dc=ugent,dc=be -f temp.ldif`
+  `ldapadd -v -x -w #{rootpassword} -D cn=admin,dc=zeus,dc=ugent,dc=be -f temp.ldif`
 
   FileUtils.rm 'temp.ldif'
   # Wait a bit
@@ -140,7 +147,7 @@ def do_shit(user_name, first_name, last_name, email, rootpassword)
   `echo #{rootpassword} | kinit root/admin`
 
   # `aklog && pts createuser -name #{user_name} -id #{user_id}`
-  `aklog`
+  #`aklog`
 
   # `vos create clarke a user.#{user_name} 10000000`
   # `cd /afs/zeus.ugent.be/user/ && fs mkm #{user_name} user.#{user_name} -rw`
